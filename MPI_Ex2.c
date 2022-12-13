@@ -20,7 +20,7 @@ int main(int argc,char *argv[]) {
       } fclose(fp);
    } else {
       for (source = 0; source < 100; source++){
-          outmsg = rand()%10000;
+          outmsg = 10000;
           MPI_Send(&outmsg, 1, MPI_INT, 0, tag, MPI_COMM_WORLD); 
       }
    }
