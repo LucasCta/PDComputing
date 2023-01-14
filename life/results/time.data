@@ -1,0 +1,39 @@
+life.c with -O3
+
+real	0m44,896s
+user	0m44,668s
+sys	    0m0,048s
+
+openmp-life.c -O3
+
+real	0m40,737s
+user	2m32,504s
+sys	    0m1,873s
+
+mpi-life.c -O3 (n = 4)
+
+real	0m23,529s
+user	1m22,820s
+sys	    0m1,351s
+
+life.c
+
+real	7m52,844s
+user	7m52,531s
+sys	    0m0,093s
+
+openmp-life.c
+
+real	4m48,772s
+user	17m57,049s
+sys	    0m3,284s
+
+mpi-life.c (n = 4)
+
+real	2m51,564s
+user	11m14,762s
+sys	    0m1,295s
+
+
+
+
