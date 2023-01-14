@@ -27,10 +27,10 @@ void mpi_life (bool ** board, bool ** nextBoard, int sizeRows, int sizeColumn) {
 	for (i=1; i<sizeRows-1; i++) {
 		for (j=0; j<sizeColumn; j++) {
 		    a = countAdjacency(board, sizeRows, sizeColumn, i, j);
-			if (a == 2) nextBoard[i-1][j] = board[i][j];
-			if (a == 3) nextBoard[i-1][j] = 1;
-			if (a < 2) nextBoard[i-1][j] = 0;
-			if (a > 3) nextBoard[i-1][j] = 0;
+			if (a == 2) nextBoard[i][j] = board[i][j];
+			if (a == 3) nextBoard[i][j] = 1;
+			if (a < 2) nextBoard[i][j] = 0;
+			if (a > 3) nextBoard[i][j] = 0;
 		}
     }
 }
@@ -77,35 +77,26 @@ int main (int argc,char *argv[]) {
         
         //Sending Board Pieces
         for (i = 0; i < numtasks-1; i++) {
-            if (i == numtasks-2)  
-                MPI_Send(&board[(i*numRows)][0], (size*(numRows+2+(size%(numtasks-1)))), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD); 
-            else 
-                MPI_Send(&board[(i*numRows)][0], size*(numRows+2), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD); 
+            if (i == numtasks-2) MPI_Send(&board[(i*numRows)][0], (size*(numRows+2+(size%(numtasks-1)))), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD); 
+            else MPI_Send(&board[(i*numRows)][0], size*(numRows+2), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD); 
         }
         
-        /* Sends Processes 2 Tiles
-        for (i=0; i<steps-1; i++) {
-            MPI_Recv(&inmsg, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &Stat);
-            for (j = 0; j < numtasks - 1; j++)
-                MPI_Send(vet, tamanho, MPI_DOUBLE, 1, tag, MPI_COMM_WORLD);
-        } MPI_Recv(&inmsg, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &Stat);
-        */
+        // Recieve Final Board
+        for (i = 0; i < numtasks-1; i++) {
+            if (i == numtasks-2) MPI_Recv(&board[(i*numRows)][0], (size*(numRows+2+(size%(numtasks-1)))), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD, &Stat); 
+            else MPI_Recv(&board[(i*numRows)][0], size*(numRows+2), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD, &Stat); 
+        }
         
-        //Print Control
-        for (i = 0; i < numtasks-1; i++) 
-            MPI_Recv(&size, 1, MPI_INT, MPI_ANY_SOURCE, tag, MPI_COMM_WORLD, &Stat);
-        
-        // Print the Board
+        // Print Final Board
         for (i=0; i<size+2; i++) {
 	        for (j=0; j<size; j++) 
 		        printf ("%c", board[i][j] ? 'O' : '-');
 	        printf ("\n");
         } printf("\n\n");
 
-        //Free Allocated Space for Boards
-        //for (i=0; i<size; i++)
-        //    free(board[i]); 
-        //free(board);
+        //Free Allocated Space for Board
+        free(board[0]); 
+        free(board);
         
     } else {
     
@@ -117,59 +108,59 @@ int main (int argc,char *argv[]) {
         
         //Allocate Board Pieces
         bool ** board = alloc_2d_bool(numRows+2,size);
-        bool ** nextBoard = alloc_2d_bool(numRows,size);  
+        bool ** nextBoard = alloc_2d_bool(numRows+2,size);
+        for (i=0; i < size; i++){
+            nextBoard[0][i] = 0;
+            nextBoard[numRows+1][i] = 0;  
+        } bool ** tmp;
         
         //Recieve Board
         MPI_Recv(&board[0][0], size*(numRows+2), MPI_C_BOOL, 0, tag, MPI_COMM_WORLD, &Stat);
         
-        // Print the Board
-        printf("\n\n------Printing From Rank %d-------\n\n",rank);
-        for (i=0; i<numRows+2; i++) {
-	        for (j=0; j<size; j++) 
-		        printf ("%c", board[i][j] ? 'O' : '-');
-	        printf ("\n");
-        } printf("\n----------------------------------\n\n");
-       
-        //1 step game of life
-        mpi_life(board,nextBoard,numRows+2,size);
-        
-        // Print the Board
-        printf("\n\n------NEWBOARD Printing From Rank %d-------\n\n",rank);
-        for (i=0; i<numRows; i++) {
-	        for (j=0; j<size; j++) 
-		        printf ("%c", nextBoard[i][j] ? 'O' : '-');
-	        printf ("\n");
-        } printf("\n----------------------------------\n\n");
-        
-        //Print Control
-        MPI_Send(&size, 1, MPI_INT, 0, tag, MPI_COMM_WORLD);
-        
-        /*
-	    //Play the Game of Life
-	    for (i=0; i<steps; i++) {
+        int s;
+	    for (s=0; s<steps; s++) {
 	    
-	        mpi_life(board,nextBoard,boardPiece,size);
+	        //Play Game of Life
+	        mpi_life(board,nextBoard,numRows+2,size);
+	        tmp = nextBoard; nextBoard = board; board = tmp;
 	        
-	        //Sends Back nextBoard
-	        MPI_Send(, tamanho, MPI_DOUBLE, 1, tag, MPI_COMM_WORLD);
-	        
-	        //Recieve Att 2 Pieces
-	        if (i != steps) {
-	            MPI_Recv(vet, tamanho, MPI_DOUBLE, 1, tag, MPI_COMM_WORLD, &Stat);
-	            board[1][0] = nextBoard;
+	        //Trades Edges
+	        if (numtasks > 2){
+	            if (rank == numtasks-1) {
+	                MPI_Recv(&board[0][0], size, MPI_C_BOOL, rank-1, tag, MPI_COMM_WORLD, &Stat);
+	                MPI_Send(&board[1][0], size, MPI_C_BOOL, rank-1, tag, MPI_COMM_WORLD); 
+	            } else if (rank == 1) {
+	                MPI_Send(&board[numRows][0], size, MPI_C_BOOL, rank+1, tag, MPI_COMM_WORLD);  
+	                MPI_Recv(&board[numRows+1][0], size, MPI_C_BOOL, rank+1, tag, MPI_COMM_WORLD, &Stat);
+	            } else {  
+	                MPI_Recv(&board[0][0], size, MPI_C_BOOL, rank-1, tag, MPI_COMM_WORLD, &Stat);
+	                MPI_Send(&board[numRows][0], size, MPI_C_BOOL, rank+1, tag, MPI_COMM_WORLD); 
+	                MPI_Send(&board[1][0], size, MPI_C_BOOL, rank-1, tag, MPI_COMM_WORLD); 
+	                MPI_Recv(&board[numRows+1][0], size, MPI_C_BOOL, rank+1, tag, MPI_COMM_WORLD, &Stat);
+	            }
             }
             
-        }
+            #ifdef DEBUG
+            // Print Board
+            printf("\n\n=== Rank: %d Step: %d ===\n\n",rank,s);
+            for (i=0; i<numRows+2; i++) {
+	            for (j=0; j<size; j++) 
+		            printf ("%c", board[i][j] ? 'O' : '-');
+	            printf ("\n");
+            } 
+            printf("\n========================\n\n");
+            #endif
+            
+        } 
         
+        //Sends Final Board to Main
+        MPI_Send(&board[1][0], size*numRows, MPI_C_BOOL, 0, tag, MPI_COMM_WORLD); 
         
         // Free Allocated Space for Boards
-        
-        for (i=0; i< numColumns+2; i++)
-            free(board[i]); 
-        for (i=0; i< numColumns; i++)
-            free(nextBoard[i]);
+        free(board[0]); 
+        free(nextBoard[0]);
         free(board); 
-        free(nextBoard);*/
+        free(nextBoard);
         
     }
   
