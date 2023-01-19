@@ -16,9 +16,8 @@ int countAdjacency (bool ** board, int size, int i, int j) {
 
 void life (bool ** board, bool ** nextBoard, int size) {
 	int	i, j, a;
-	#pragma omp parallel for
+	#pragma omp parallel for private(j,a)
 	for (i=0; i<size; i++) {
-	    #pragma omp parallel for
 		for (j=0; j<size; j++) {
 		    a = countAdjacency(board, size, i, j);
 			if (a == 2) nextBoard[i][j] = board[i][j];
