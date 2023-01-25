@@ -69,22 +69,32 @@ int main (int argc,char *argv[]) {
                 board[i][j] = (s[j] == 'x');
         } free(s); fclose(f);
         
-        // Sends Basic Information
-        for (i=1; i < numtasks; i++) {
-            MPI_Send(&size, 1, MPI_INT, i, tag, MPI_COMM_WORLD);
-            MPI_Send(&steps, 1, MPI_INT, i, tag, MPI_COMM_WORLD);
-        } numRows = size / (numtasks-1);
+        // Calculate Board Division
+        int * nRows = (int*) calloc(numtasks-1, sizeof(int));
+        for (i=0; i < numtasks-1; i++)
+            nRows[i] = size/(numtasks-1);
+        int resto = size%(numtasks-1);
+        while (resto > 0)
+            nRows[resto--]++;
         
-        //Sending Board Pieces
-        for (i = 0; i < numtasks-1; i++) {
-            if (i == numtasks-2) MPI_Send(&board[(i*numRows)][0], (size*(numRows+2+(size%(numtasks-1)))), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD); 
-            else MPI_Send(&board[(i*numRows)][0], size*(numRows+2), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD); 
+        // Sends Basic Information
+        for (i=0; i < numtasks-1; i++) {
+            MPI_Send(&size, 1, MPI_INT, i+1, tag, MPI_COMM_WORLD);
+            MPI_Send(&steps, 1, MPI_INT, i+1, tag, MPI_COMM_WORLD);
+            MPI_Send(&nRows[i], 1, MPI_INT, i+1, tag, MPI_COMM_WORLD);
         }
         
+        int boardSize = 0;
+        for (i=0; i < numtasks-1; i++) {
+            MPI_Send(&board[boardSize][0], size*(nRows[i]+2), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD); 
+            boardSize += nRows[i];
+        } 
+        
         // Recieve Final Board
+        boardSize = 0;
         for (i = 0; i < numtasks-1; i++) {
-            if (i == numtasks-2) MPI_Recv(&board[(i*numRows)][0], (size*(numRows+2+(size%(numtasks-1)))), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD, &Stat); 
-            else MPI_Recv(&board[(i*numRows)][0], size*(numRows+2), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD, &Stat); 
+            MPI_Recv(&board[boardSize][0], size*(nRows[i]+2), MPI_C_BOOL, i+1, tag, MPI_COMM_WORLD, &Stat); 
+            boardSize += nRows[i];
         }
         
         // Print Final Board
@@ -103,8 +113,7 @@ int main (int argc,char *argv[]) {
         //Recieves Size and Steps Information from Main
         MPI_Recv(&size, 1, MPI_INT, 0, tag, MPI_COMM_WORLD, &Stat);
         MPI_Recv(&steps, 1, MPI_INT, 0, tag, MPI_COMM_WORLD, &Stat);
-        numRows = size / (numtasks-1);
-        if (rank == numtasks-1) numRows += size%(numtasks-1);
+        MPI_Recv(&numRows, 1, MPI_INT, 0, tag, MPI_COMM_WORLD, &Stat);
         
         //Allocate Board Pieces
         bool ** board = alloc_2d_bool(numRows+2,size);
