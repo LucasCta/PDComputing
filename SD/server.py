@@ -5,7 +5,7 @@ import xmlrpc.client
 import os
 import json
 
-nomeBanco = input("Digite o nome do Banco: ")
+nomeBanco = input("Digite o nome do Banco: \n")
 with open('./bancos/'+nomeBanco+'.json', 'a+') as arquivo:
     arquivo.seek(0, 2)
     if arquivo.tell() == 0:

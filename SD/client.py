@@ -2,7 +2,7 @@ import json
 import xmlrpc.client
 
 while True:
-    banco = input("Qual Banco deseja se conectar? ")
+    banco = input("Qual Banco deseja se conectar? \n")
     if banco == "sair":
         break
     with open('./bancos/'+banco+'.json') as arquivo:
@@ -16,20 +16,20 @@ while True:
                 print("3- Transferencia")
                 print("4- Consultar")
                 print("5- Sair")
-                opt = int(input("Digite o numero: "))
+                opt = int(input("Digite o numero: \n"))
                 if opt == 1:
-                    print(s.cadastro(input("Digite a conta: ")))
+                    print(s.cadastro(input("Digite a conta: \n")))
                 elif opt == 2:    
-                    conta = input("Digite a conta: ")
-                    moedas = int(input("Digite o valor em moedas: "))
+                    conta = input("Digite a conta: \n")
+                    moedas = int(input("Digite o valor em moedas: \n"))
                     print(s.deposito(conta, moedas))
                 elif opt == 3:
-                    contaA = input("Digite a conta que ira transferir: ")
-                    contaB = input("Digite a conta que ira receber: ")
-                    moedas = int(input("Digite o valor em moedas: "))
+                    contaA = input("Digite a conta que ira transferir: \n")
+                    contaB = input("Digite a conta que ira receber: \n")
+                    moedas = int(input("Digite o valor em moedas: \n"))
                     print(s.transferencia(contaA, contaB, moedas))
                 elif opt == 4:
-                    print(s.consulta(input("Digite a conta: ")))
+                    print(s.consulta(input("Digite a conta: \n")))
                 elif opt == 5:
                     print("Saindo do terminal")
                     break
