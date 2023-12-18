@@ -7,7 +7,7 @@ while True:
         break
     with open('./bancos/'+banco+'.json') as arquivo:
         contas = json.load(arquivo)
-        porta = contas["porta"]
+        porta = contas["porta"][0]
         with xmlrpc.client.ServerProxy("http://localhost:"+str(porta)+"/"+banco) as s:
             while True:
                 print("<<<< O que deseja fazer? >>>>")

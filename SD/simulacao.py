@@ -2,8 +2,8 @@ import subprocess
 import time
 
 comando = "/usr/bin/python3"
-servidor = "/home/lucas/PDComputing/SD/server.py"
-cliente = "/home/lucas/PDComputing/SD/client.py"
+servidor = "./server.py"
+cliente = "./client.py"
 
 CS = [comando, servidor]
 SS = [comando, cliente]
