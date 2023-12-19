@@ -29,11 +29,16 @@ class Banco():
         self.serverStartTime = time.time()
         self.numOp = 0
         self.meanRTT = 0
-        self.maxOp = 2000
+        self.maxOp = 1000
+        self.lock = True
         self.salvaArquivo()
     def salvaArquivo(self):
+        while self.lock == False:
+            continue
+        self.lock = False
         with open('./bancos/'+self.nome+'.json', 'w') as arquivo:
             json.dump(self.contas, arquivo)
+        self.lock = True
     def cadastro(self, conta):
         if conta in self.contas:
             return "ERRO: Conta Já Existente"
@@ -68,66 +73,53 @@ class Banco():
             self.salvaArquivo()
             return "Tranferencia Local Efetuada com Sucesso"
         else:
-            bancos = os.listdir('./bancos')
-            for i in range(0, len(bancos)):
-                with open('./bancos/'+bancos[i]) as B:
-                    contas = json.load(B)
-                    if contaB in contas:
-                        idTransacao = self.nome + str(len(self.contas[contaA][1]))
-                        self.contas[contaA][0] -= moedas 
-                        self.contas[contaA][1][idTransacao] = {
-                                "ID": idTransacao,
-                                "Origem": [self.nome, porta, contaA],
-                                "Destino": [bancos[i].split(".")[0], contas["porta"][0], contaB],
-                                "Quantia": moedas,
-                                "ACK": 0,
-                                "StartTime": time.time(),
-                                "EndTime": 0
-                            }
-                        self.salvaArquivo()
-                        return "Transacao entre 2 Bancos em Andamento"
-        return "ERRO: Conta {} Inexistente".format(contaB)
+            idTransacao = self.nome + str(len(self.contas[contaA][1]))
+            self.contas[contaA][0] -= moedas 
+            self.contas[contaA][1][idTransacao] = {
+                "ID": idTransacao,
+                "Origem": ["A", 8001, contaA],
+                "Destino": ["B", 8002, contaB],
+                "Quantia": moedas,
+                "ACK": 0,
+                "StartTime": time.time(),
+                "EndTime": 0
+            }
+            self.salvaArquivo()
+            return "Transacao entre 2 Bancos em Andamento"
     def acknowlege(self, transacao):
         if (transacao["ACK"] == 0):
-            if (transacao["ID"] in self.contas[transacao["Destino"][2]][1] and
-               self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] >= 0):
-                return "Resending ACK"
-            transacao["ACK"] = 1
-            self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
+            if not (transacao["ID"] in self.contas[transacao["Destino"][2]][1]):
+                transacao["ACK"] = 1
+                self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
         elif (transacao["ACK"] == 1):
-            if (self.contas[transacao["Origem"][2]][1][transacao["ID"]]["ACK"] >= 1):
-                return "Resending ACK"
-            transacao["ACK"] = 2
-            self.contas[transacao["Origem"][2]][1][transacao["ID"]] = transacao
+            if not (self.contas[transacao["Origem"][2]][1][transacao["ID"]]["ACK"] >= 1):
+                transacao["ACK"] = 2
+                self.contas[transacao["Origem"][2]][1][transacao["ID"]] = transacao
         elif (transacao["ACK"] == 2):
-            if (transacao["ID"] not in self.contas[transacao["Destino"][2]][1] or
-               self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] >= 2):
+            if (self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] >= 2):
                 transacao["ACK"] = 5
                 self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
-                self.salvaArquivo()
-                return "Resending ACK"
-            transacao["ACK"] = 3
-            self.contas[transacao["Destino"][2]][0] += transacao["Quantia"]
-            self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
+            else:
+                transacao["ACK"] = 3
+                self.contas[transacao["Destino"][2]][0] += transacao["Quantia"]
+                self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
         elif (transacao["ACK"] == 3):
-            if (transacao["ID"] not in self.contas[transacao["Destino"][2]][1] or
-               self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] >= 3):
-                return "Already Done"
-            transacao["ACK"] = 4
-            transacao["EndTime"] = time.time() 
-            self.numOp += 1
-            self.meanRTT += transacao["EndTime"] - transacao["StartTime"] 
-            if self.numOp == self.maxOp:
-                self.contas["porta"][1]["troughput"] = self.maxOp / (time.time() - self.serverStartTime)
-                self.contas["porta"][1]["meanRTT"] = self.meanRTT / self.maxOp
-                self.salvaArquivo()
-                exit()
-            self.contas[transacao["Origem"][2]][1][transacao["ID"]] = transacao
+            if not (self.contas[transacao["Origem"][2]][1][transacao["ID"]]["ACK"] >= 3):
+                transacao["ACK"] = 4
+                transacao["EndTime"] = time.time() 
+                self.contas[transacao["Origem"][2]][1][transacao["ID"]] = transacao
+                self.numOp += 1
+                self.meanRTT += transacao["EndTime"] - transacao["StartTime"] 
+                if self.numOp == self.maxOp:
+                    self.contas["porta"][1]["troughput"] = self.maxOp / (time.time() - self.serverStartTime)
+                    self.contas["porta"][1]["meanRTT"] = self.meanRTT / self.maxOp
         self.salvaArquivo()
         return "Sending ACK"
 
 async def pendingTransactions(banco):
     for conta in list(banco.contas):
+        if conta == "porta":
+            continue
         for t in list(banco.contas[conta][1]):
             transacao = banco.contas[conta][1][t]
             porta = transacao["Destino"][1] if transacao["Origem"][0] == banco.nome else transacao["Origem"][1]
@@ -139,8 +131,6 @@ async def pendingTransactions(banco):
                         s.acknowlege(transacao)
                 except Exception as e:
                     print("ACK Failed, Error Msg: {}".format(str(e)))
-            else:
-                del banco.contas[conta][1][t]
 
 banco = Banco(nomeBanco)
 
