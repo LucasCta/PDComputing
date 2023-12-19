@@ -16,6 +16,7 @@ while True:
                 print("3- Transferencia")
                 print("4- Consultar")
                 print("5- Sair")
+                print("6- Testes")
                 opt = int(input("Digite o numero: \n"))
                 if opt == 1:
                     print(s.cadastro(input("Digite a conta: \n")))
@@ -33,6 +34,12 @@ while True:
                 elif opt == 5:
                     print("Saindo do terminal")
                     break
+                elif opt == 6:
+                    contaA = input("Digite a conta que ira transferir: \n")
+                    contaB = input("Digite a conta que ira receber: \n")
+                    moedas = int(input("Digite o valor em moedas: \n"))
+                    for i in range(moedas):
+                        print(s.transferencia(contaA, contaB, 1))
                 else:
                     print("Opcao Invalida")
         

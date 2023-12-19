@@ -6,6 +6,7 @@ import os
 import json
 import asyncio
 import threading
+import time
 
 nomeBanco = input("Digite o nome do Banco: \n")
 with open('./bancos/'+nomeBanco+'.json', 'a+') as arquivo:
@@ -25,6 +26,10 @@ class Banco():
     def __init__(self, nome):
         self.nome = nome
         self.contas = contas
+        self.serverStartTime = time.time()
+        self.numOp = 0
+        self.meanRTT = 0
+        self.maxOp = 2000
         self.salvaArquivo()
     def salvaArquivo(self):
         with open('./bancos/'+self.nome+'.json', 'w') as arquivo:
@@ -75,13 +80,14 @@ class Banco():
                                 "Origem": [self.nome, porta, contaA],
                                 "Destino": [bancos[i].split(".")[0], contas["porta"][0], contaB],
                                 "Quantia": moedas,
-                                "ACK": 0
+                                "ACK": 0,
+                                "StartTime": time.time(),
+                                "EndTime": 0
                             }
                         self.salvaArquivo()
                         return "Transacao entre 2 Bancos em Andamento"
         return "ERRO: Conta {} Inexistente".format(contaB)
     def acknowlege(self, transacao):
-        print("> ACK {} <".format(transacao["ACK"]))
         if (transacao["ACK"] == 0):
             if (transacao["ID"] in self.contas[transacao["Destino"][2]][1] and
                self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] >= 0):
@@ -98,12 +104,24 @@ class Banco():
                self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] >= 2):
                 transacao["ACK"] = 5
                 self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
+                self.salvaArquivo()
                 return "Resending ACK"
             transacao["ACK"] = 3
             self.contas[transacao["Destino"][2]][0] += transacao["Quantia"]
             self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
         elif (transacao["ACK"] == 3):
+            if (transacao["ID"] not in self.contas[transacao["Destino"][2]][1] or
+               self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] >= 3):
+                return "Already Done"
             transacao["ACK"] = 4
+            transacao["EndTime"] = time.time() 
+            self.numOp += 1
+            self.meanRTT += transacao["EndTime"] - transacao["StartTime"] 
+            if self.numOp == self.maxOp:
+                self.contas["porta"][1]["troughput"] = self.maxOp / (time.time() - self.serverStartTime)
+                self.contas["porta"][1]["meanRTT"] = self.meanRTT / self.maxOp
+                self.salvaArquivo()
+                exit()
             self.contas[transacao["Origem"][2]][1][transacao["ID"]] = transacao
         self.salvaArquivo()
         return "Sending ACK"
