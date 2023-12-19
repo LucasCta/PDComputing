@@ -83,39 +83,36 @@ class Banco():
     def acknowlege(self, transacao):
         print("> ACK {} <".format(transacao["ACK"]))
         if (transacao["ACK"] == 0):
-            if (transacao["ID"] in self.contas[transacao["Destino"][2]][1]):
-                return "Already Received ACK" 
+            if (transacao["ID"] in self.contas[transacao["Destino"][2]][1] and
+               self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] >= 0):
+                return "Resending ACK"
             transacao["ACK"] = 1
             self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
         elif (transacao["ACK"] == 1):
-            if (self.contas[transacao["Origem"][2]][1][transacao["ID"]]["ACK"] == 2):
-                return "Already Recieved ACK" 
+            if (self.contas[transacao["Origem"][2]][1][transacao["ID"]]["ACK"] >= 1):
+                return "Resending ACK"
             transacao["ACK"] = 2
             self.contas[transacao["Origem"][2]][1][transacao["ID"]] = transacao
         elif (transacao["ACK"] == 2):
-            if (self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] == 3):
+            if (transacao["ID"] not in self.contas[transacao["Destino"][2]][1] or
+               self.contas[transacao["Destino"][2]][1][transacao["ID"]]["ACK"] >= 2):
                 transacao["ACK"] = 5
                 self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
-                return "Already Received ACK"
-            else:
-                transacao["ACK"] = 3
-                self.contas[transacao["Destino"][2]][0] += transacao["Quantia"]
-                self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
+                return "Resending ACK"
+            transacao["ACK"] = 3
+            self.contas[transacao["Destino"][2]][0] += transacao["Quantia"]
+            self.contas[transacao["Destino"][2]][1][transacao["ID"]] = transacao
         elif (transacao["ACK"] == 3):
             transacao["ACK"] = 4
             self.contas[transacao["Origem"][2]][1][transacao["ID"]] = transacao
         self.salvaArquivo()
-        return "Done"
+        return "Sending ACK"
 
 async def pendingTransactions(banco):
-    print("> Pending Transactions <")
-    for conta in banco.contas:
-        for transacao in banco.contas[conta][1]:
-            transacao = banco.contas[conta][1][transacao]
-            if transacao["Origem"][0] == banco.nome:
-                porta = transacao["Destino"][1]
-            else:
-                porta = transacao["Origem"][1]   
+    for conta in list(banco.contas):
+        for t in list(banco.contas[conta][1]):
+            transacao = banco.contas[conta][1][t]
+            porta = transacao["Destino"][1] if transacao["Origem"][0] == banco.nome else transacao["Origem"][1]
             if transacao["ACK"] != 3 and transacao["ACK"] != 4:
                 if transacao["ACK"] == 5:
                     transacao["ACK"] = 3
@@ -124,6 +121,8 @@ async def pendingTransactions(banco):
                         s.acknowlege(transacao)
                 except Exception as e:
                     print("ACK Failed, Error Msg: {}".format(str(e)))
+            else:
+                del banco.contas[conta][1][t]
 
 banco = Banco(nomeBanco)
 
@@ -136,7 +135,6 @@ def startBank():
 async def transactionLoop():
     while(True):
         await pendingTransactions(banco)
-        await asyncio.sleep(2)
 
 def startTransactions():
     new_loop = asyncio.new_event_loop()
