@@ -7,6 +7,7 @@ import json
 import asyncio
 import threading
 import time
+import statistics
 
 nomeBanco = input("Digite o nome do Banco: \n")
 with open('./bancos/'+nomeBanco+'.json', 'a+') as arquivo:
@@ -29,7 +30,8 @@ class Banco():
         self.serverStartTime = time.time()
         self.numOp = 0
         self.meanRTT = 0
-        self.maxOp = 1000
+        self.maxOp = 600
+        self.stdevRTT = 0
         self.lock = True
         self.salvaArquivo()
     def salvaArquivo(self):
@@ -73,12 +75,24 @@ class Banco():
             self.salvaArquivo()
             return "Tranferencia Local Efetuada com Sucesso"
         else:
+            if contaA == "A":
+                portO = 8001
+            elif contaA == "B":
+                portO = 8002
+            else:
+                portO = 8003
+            if contaB == "A":
+                portD = 8001
+            elif contaB == "B":
+                portD = 8002
+            else:
+                portD = 8003
             idTransacao = self.nome + str(len(self.contas[contaA][1]))
             self.contas[contaA][0] -= moedas 
             self.contas[contaA][1][idTransacao] = {
                 "ID": idTransacao,
-                "Origem": ["A", 8001, contaA],
-                "Destino": ["B", 8002, contaB],
+                "Origem": [contaA, portO, contaA],
+                "Destino": [contaB, portD, contaB],
                 "Quantia": moedas,
                 "ACK": 0,
                 "StartTime": time.time(),
@@ -111,8 +125,23 @@ class Banco():
                 self.numOp += 1
                 self.meanRTT += transacao["EndTime"] - transacao["StartTime"] 
                 if self.numOp == self.maxOp:
-                    self.contas["porta"][1]["troughput"] = self.maxOp / (time.time() - self.serverStartTime)
+                    data = []
+                    for conta in list(banco.contas):
+                        if conta == "porta":
+                            continue
+                        for t in list(banco.contas[conta][1]):
+                            transacao = banco.contas[conta][1][t]
+                            data.append(transacao["EndTime"] - transacao["StartTime"])
+                    self.stdevRTT = statistics.stdev(data)
+                    if self.nome == "A":
+                        v = 9
+                    elif self.nome == "B":
+                        v = 6
+                    else:
+                        v = 3
+                    self.contas["porta"][1]["troughput"] = self.maxOp / (time.time() - self.serverStartTime - v)
                     self.contas["porta"][1]["meanRTT"] = self.meanRTT / self.maxOp
+                    self.contas["porta"][1]["stdevRTT"] = self.stdevRTT
         self.salvaArquivo()
         return "Sending ACK"
 

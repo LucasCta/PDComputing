@@ -8,8 +8,8 @@ cliente = "./client.py"
 CS = [comando, servidor]
 SS = [comando, cliente]
 
-B = 2
-C = 1
+B = 3
+C = 6 
 
 for i in range(B):
     with open("entradas/S"+str(i)+".txt", "rb") as input_file:
@@ -21,5 +21,6 @@ for i in range(C):
     with open("entradas/C"+str(i)+".txt", "rb") as input_file:
         with open("saidas/C"+str(i)+".txt", "w+") as output_file:
             C = subprocess.Popen([comando, cliente], stdin=input_file, stderr=output_file, stdout=output_file)
+            time.sleep(1)
 
 print("Simulacao Concluida")
